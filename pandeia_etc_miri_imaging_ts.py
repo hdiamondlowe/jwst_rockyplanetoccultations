@@ -7,13 +7,13 @@ from astropy.table import Table
 from astropy.modeling.models import BlackBody
 from scipy import stats
 import astrotools.orbitparams as orb
-import astrotools.generateExoplanetTable as genTable
 import pickle
 import json
 import starry as st
 import copy
 import os
 st.config.lazy = False
+st.config.quiet = True
 from jwst_backgrounds import jbt
 import pandeia.engine
 from pandeia.engine.calc_utils import build_default_calc
@@ -294,34 +294,31 @@ def get_timing(miri_dict):
 # ## Provide stellar parameters
 
 # grab a table of transiting terrestrial exoplanets from NASA Exoplante Archive
-try: smallPlanetSystems = ascii.read('./NASAExoArchive_TransitingExoplanetTable.dat')
-except:
-    thiswd = os.getcwd()
-    smallPlanetSystems = genTable.generateTransitingExoTable(outputpath=thiswd, 
-                                                             sy_dist_upper=25, 
-                                                             st_rad_upper=0.35, 
-                                                             pl_rade_upper=1.85, 
-                                                             pl_per_upper=30)
-
-print("number of planets", len(smallPlanetSystems))
-
+sample = ascii.read('sample_final.dat')
+print("number of planets", len(sample))
+targ = sample[0]
 
 # Creating a standard star
-M_s  = 1
-R_s  = 1
-prot = 1
+def make_star(targ):
+    M_s  = targ['st_mass']
+    R_s  = targ['st_rad']
+    prot = 1
 
-starA = st.Primary(
-    st.Map(ydeg = 1, udeg = 2, nw = 1, amp = 1.0), 
-    m    = M_s,
-    r    = R_s, 
-    prot = prot
-)
+    star = st.Primary(
+        st.Map(ydeg = 1, udeg = 2, nw = 1, amp = 1.0), 
+        m    = M_s,
+        r    = R_s, 
+        prot = prot
+    )
+
+    return star
 
 # adapted from Mette's code
 def make_planet(plnt, phase=0, t0=0, tidally_locked=True):
-    m_p     = ((plnt['pl_bmasse']*u.M_earth)/(plnt['st_mass']*u.M_sun)).decompose()
-    r_p     = ((plnt['pl_bmasse']*u.R_earth)/(plnt['st_mass']*u.R_sun)).decompose()
+    #m_p     = ((plnt['pl_bmasse']*u.M_earth)/(plnt['st_mass']*u.M_sun)).decompose()
+    #r_p     = ((plnt['pl_rade']*u.R_earth)/(plnt['st_rad']*u.R_sun)).decompose()
+    m_p     = ((plnt['pl_bmasse']*u.M_earth).to(u.M_sun)).value
+    r_p     = ((plnt['pl_rade']*u.R_earth).to(u.R_sun)).value
     porb    = plnt['pl_orbper']
     prot    = plnt['pl_orbper']
     Omega   = 0
@@ -372,8 +369,8 @@ def T_day(T_s, R_s, a, albedo, atmo='bare rock'):
     
     return T_day
 
-for targ in smallPlanetSystems:
-
+for targ in sample:
+    #targ = sample[0]
     print(targ)
 
     # star_params
@@ -385,11 +382,11 @@ for targ in smallPlanetSystems:
                     Rp_Rs=((targ['pl_rade']*u.R_earth)/(targ['st_rad']*u.R_sun)).decompose(),
                     a_Rs = ((targ['pl_orbsmax']*u.AU)/(targ['st_rad']*u.R_sun)).decompose(),
                     i = targ['pl_orbincl']
-                  )# event duration
+                   ) # event duration
 
     # obs params
-    nobs = 2                # number of occultation obsrevations
-    tfrac   = 1             # how many times transit duration to observe
+    nobs = 4                # number of occultation obsrevations
+    tfrac   = 1             # how many times occuldation duration to observe
     tsettle = 45 * u.min    # should be specific to MIRI
     tcharge = 1 * u.hr      # amount of charged time becuase JWST will not start observations right away
     noccultations = 1       # can always scale later
@@ -439,12 +436,13 @@ for targ in smallPlanetSystems:
     amp_atmo = flux_amplitude(targ['st_teff']*u.K, T_atmo, ref_wave, targ['st_rad']*u.R_sun, targ['pl_rade']*u.R_earth)
 
     print(amp_rock, amp_atmo)
-    planet_b = make_planet(targ)
-    planet_b.map.amp = amp_rock
+    planet = make_planet(targ)
+    planet.map.amp = amp_rock
+
+    star = make_star(targ)
 
 
-
-    system = st.System(starA, planet_b)#, planet_c)
+    system = st.System(star, planet)#, planet_c)
 
 
     snr = report['scalar']['sn']
@@ -463,8 +461,8 @@ for targ in smallPlanetSystems:
 
     noise /= np.sqrt(nobs)
 
-    tstart = (targ['pl_orbper']*0.5 - targ['pl_orbper']*0.1) * u.day
-    tend   = (targ['pl_orbper']*0.5 + targ['pl_orbper']*0.1) * u.day
+    tstart = (targ['pl_orbper']*u.day)*0.5 - (tdur/2) - (tdur*tfrac/2)
+    tend   = (targ['pl_orbper']*u.day)*0.5 + (tdur/2) + (tdur*tfrac/2)
     trange = tend - tstart
     total_int = int(np.ceil((trange/cadence).decompose()))
 
@@ -473,7 +471,7 @@ for targ in smallPlanetSystems:
     signal_ts_scatter = signal_ts.value + scatter_ts.value
 
     time = np.linspace(tstart.value, tend.value, total_int) # times in... days?
-    
+
     flux = np.hstack(system.flux(time))
 
     #plt.figure(figsize=(15, 4))
@@ -492,7 +490,15 @@ for targ in smallPlanetSystems:
     plt.plot(time, signal_ts_scatter*flux/signal, '.', alpha=0.5, label=f'{nobs} observations')
     plt.plot(time_binned, signal_ts_scatter_binned/signal, 'o', alpha=1, color='darkblue')
     plt.plot(time, signal_ts*flux/signal, '-', lw=3)
-    plt.legend(loc='best')
+    plt.axvline(0.5*targ['pl_orbper'], ls=':', alpha=0.6)
+    plt.axvline(0.5*targ['pl_orbper']-tdur.value/2, ls='--', alpha=0.6)
+    plt.axvline(0.5*targ['pl_orbper']+tdur.value/2, ls='--', alpha=0.6)
+
+    plt.title(targ['pl_name']+f', dayside temp of bare rock = {T_rock}, {nobs} obs', fontsize=16)
+
+    plt.xlabel('Time (days)')
+    plt.ylabel('Normalized Flux')
+
     plt.grid(alpha=0.4)
     plt.tight_layout()
     plt.show()
@@ -507,13 +513,13 @@ for targ in smallPlanetSystems:
 
 
     plt.figure(figsize=(12, 8))
-    plt.plot(wave_range, Fp_Fs_rock, lw=3, color='C3')
-    plt.plot(wave_range, Fp_Fs_atmo, lw=3, color='C0')
+    plt.plot(wave_range, Fp_Fs_rock *1e6, lw=3, color='C3')
+    plt.plot(wave_range, Fp_Fs_atmo *1e6, lw=3, color='C0')
 
 
-    plt.errorbar(ref_wave.value, amp_rock, yerr=yerr.value, fmt='.', color='k', alpha=0.8)
+    plt.errorbar(ref_wave.value, amp_rock *1e6, yerr=yerr.value *1e6, fmt='.', color='k', alpha=0.8)
 
-    plt.ylabel('$F_p$/$F_s$', fontsize=14)
+    plt.ylabel('$F_p$/$F_s$ (ppm)', fontsize=14)
     plt.xlabel('Wavelength ($\mu$m)', fontsize=14)
     plt.title(targ['pl_name']+f', dayside temp of bare rock = {T_rock}, {nobs} obs', fontsize=16)
 
