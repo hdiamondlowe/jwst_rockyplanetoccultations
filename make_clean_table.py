@@ -153,7 +153,19 @@ ascii.write(sample_intermediate, 'sample_intermediate.csv', format='csv', overwr
 ##### Selected sample by hand #########################################################################################
 #######################################################################################################################
 
-pl_names = ['GJ 1132 b', 'GJ 367 b', 'GJ 486 b', 'L 98-59 c', 'LHS 1140 b', 'LHS 1140 c', 'LHS 1478 b', 'LTT 1445 A b', 'LTT 3780 b', 'TOI-1468 b', 'TOI-1634 b', 'TRAPPIST-1 d']
+pl_names = ['GJ 1132 b', 
+            'GJ 367 b', 
+            'GJ 486 b', 
+            'L 98-59 c', 
+            'LHS 1140 b', 
+            'LHS 1140 c', 
+            'LHS 1478 b', 
+            'LTT 1445 A b', 
+            'LTT 3780 b', 
+            'TOI-1468 b', 
+            'TOI-1634 b', 
+            'TRAPPIST-1 c',
+            'TRAPPIST-1 d']
 pl_inds = [i for i, e in enumerate(sample_intermediate['pl_name']) if e in set(pl_names)]
 
 sample = copy.deepcopy(sample_intermediate)
@@ -163,7 +175,7 @@ sample = sample[mask]
 
 print(len(sample))
 sample.pprint(show_unit=True)
-ascii.write(sample, 'sample_final.dat', overwrite=True)
+ascii.write(sample, 'sample_final.csv', format='csv', overwrite=True)
 
 cmap = mpl.cm.inferno
 norm = mpl.colors.Normalize(vmin=300, vmax=1000)

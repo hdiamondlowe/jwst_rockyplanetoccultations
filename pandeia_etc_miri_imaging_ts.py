@@ -22,8 +22,8 @@ from pandeia.engine.instrument_factory import InstrumentFactory
 from pandeia.engine.perform_calculation import perform_calculation
 
 
-filter    = 'f1500w'
-subarray  = 'sub256'
+#filter    = 'f1500w'
+#subarray  = 'sub256'
 pull_default_dict = False # needs to be true if you want to pull a new default dictionary from paneia
 make_new_bkg = True # should be true if working with different stars; otherwise set to False for speed
 
@@ -42,6 +42,8 @@ def get_bkg(targ, ref_wave, make_new_bkg=True):
     background    -- list of two lists containing wavelength (um) and background counts (mJy/sr)
     """
     
+    print('Computing background')
+
     sys_coords = targ['rastr']+' '+targ['decstr']
 
     if make_new_bkg:
@@ -68,11 +70,9 @@ def get_bkg(targ, ref_wave, make_new_bkg=True):
     else: 
         background = ascii.read("background.txt")
         background = [list(background['col0']), list(background['col1'])]
-        
+    
+    print('Returning background')
     return background
-
-
-# In[9]:
 
 
 def make_miri_dict(filter, subarray, targ, pull_default_dict=True):
@@ -82,10 +82,13 @@ def make_miri_dict(filter, subarray, targ, pull_default_dict=True):
     Inputs:
     filter            -- which photometric filter to use (e.g., f1500w)
     subarray          -- which subarray readout ot use (e.g., sub256)
+    targ              -- 
     sys_coords        -- string of the coordinates of the system in RA Dec; e.g. "23h06m30.33s -05d02m36.46s";
                          to be passed to get_bkg function
     pull_default_dict -- default=True; can re-use a saved one but this doesn't save much time.
     """
+
+    print('Creating MIRI dictionary')
 
     # grab default imaging ts dictionary (I think this only works online?)
     if pull_default_dict:
@@ -119,8 +122,8 @@ def make_miri_dict(filter, subarray, targ, pull_default_dict=True):
     miri_imaging_ts['scene'][0]['spectrum']['normalization'] = {}
     miri_imaging_ts['scene'][0]['spectrum']['normalization']['type']          = 'photsys'
     miri_imaging_ts['scene'][0]['spectrum']['normalization']['norm_fluxunit'] = 'vegamag'
-    miri_imaging_ts['scene'][0]['spectrum']['normalization']['bandpass']      = 'johnson,k'
-    miri_imaging_ts['scene'][0]['spectrum']['normalization']['norm_flux']     = k_mag           # change this for different stars
+    miri_imaging_ts['scene'][0]['spectrum']['normalization']['bandpass']      = '2mass,ks'
+    miri_imaging_ts['scene'][0]['spectrum']['normalization']['norm_flux']     = targ['sy_kmag']           # change this for different stars
 
     miri_imaging_ts['scene'][0]['spectrum']['sed']['key']          = 'm5v'
     miri_imaging_ts['scene'][0]['spectrum']['sed']['sed_type']     = 'phoenix'
@@ -133,11 +136,14 @@ def make_miri_dict(filter, subarray, targ, pull_default_dict=True):
     miri_imaging_ts['strategy']['aperture_size']  = 0.7
     miri_imaging_ts['strategy']['sky_annulus']    = [2, 2.8]
 
+    print('Returning MIRI dictionary')
     return miri_imaging_ts
 
 def make_miri_calib_dict(miri_dict):
 
-    miri_imaging_ts_calibration = copy.deepcopy(miri_imaging_ts)
+    print('Creating MIRI calibration dictionary')
+
+    miri_imaging_ts_calibration = copy.deepcopy(miri_dict)
 
     miri_imaging_ts_calibration['scene'][0]['spectrum']['sed']['sed_type']     = 'flat'
     miri_imaging_ts_calibration['scene'][0]['spectrum']['sed']['unit']         = 'flam'
@@ -150,6 +156,9 @@ def make_miri_calib_dict(miri_dict):
     miri_imaging_ts_calibration['scene'][0]['spectrum']['normalization']['norm_fluxunit'] = 'flam'
     miri_imaging_ts_calibration['scene'][0]['spectrum']['normalization'].pop('bandpass')
     
+
+    print('Returning MIRI calibration dictionary')
+
     return miri_imaging_ts_calibration
 
 def get_timing(miri_dict):
@@ -295,9 +304,11 @@ def get_timing(miri_dict):
 # ## Provide stellar parameters
 
 # grab a table of transiting terrestrial exoplanets from NASA Exoplante Archive
-sample = ascii.read('sample_final.dat')
+try:
+    sample = ascii.read('RockyPlanetSample_final.csv')
+except: 
+    sample = ascii.read('sample_final.csv')
 print("number of planets", len(sample))
-targ = sample[0]
 
 # Creating a standard star
 def make_star(targ):
@@ -361,9 +372,18 @@ def T_day(T_s, R_s, a, albedo, atmo='bare rock'):
     
     return T_day
 
-for targ in sample:
-    #targ = sample[0]
+def process_target(targ):
     print(targ)
+
+    try:
+        filter = targ['filter']
+        subarray = targ['subarray']
+        nobs = targ['nobs']
+
+    except: 
+        filter = 'f1500w'
+        subarray = 'sub256'
+        nobs = 4
 
     # star_params
     star_name = targ['hostname']
@@ -377,7 +397,6 @@ for targ in sample:
                    ) # event duration
 
     # obs params
-    nobs = 4                # number of occultation obsrevations
     tfrac   = 1             # how many times occuldation duration to observe
     tsettle = 45 * u.min    # should be specific to MIRI
     tcharge = 1 * u.hr      # amount of charged time becuase JWST will not start observations right away
@@ -390,18 +409,22 @@ for targ in sample:
     # for MIRI, this calculation underestimates the number of groups; 
     # experiment with adding extra groups and checking warnings
     miri_imaging_ts = make_miri_dict(filter, subarray, targ)
-    timing = get_timing(miri_imaging_ts)
-    print(timing)
 
+    # below is some of Natasha's code to determine the timing, but for some reason the resulting number of groups is always less than the saturation limit
+    #timing = get_timing(miri_imaging_ts)
+    #print(timing)
+    #ngroup = timing['APT: Num Groups per Integration']
+    #miri_imaging_ts['configuration']['detector']['ngroup'] = ngroup
 
-    ngroup = timing['APT: Num Groups per Integration']
+    report = perform_calculation(miri_imaging_ts)
+    ngroup = int(report['scalar']['sat_ngroups'])  # use as many groups as possible without saturating
+    if ngroup > 300: ngroup = 300        # ngroups > 300 not recommended due to cosmic rays
     miri_imaging_ts['configuration']['detector']['ngroup'] = ngroup
+
     report = perform_calculation(miri_imaging_ts)
 
     print('ETC Warnings:')
     print(report['warnings'])
-
-
 
     tframe  = report['information']['exposure_specification']['tframe'] * u.s
     tint    = tframe * ngroup                         # amount of time per integration
@@ -410,9 +433,11 @@ for targ in sample:
     nint    = (tdur/(tint + treset)).decompose()      # number of in-transit integrations
     ref_wave = report['scalar']['reference_wavelength']                         * u.micron
 
+    print('number of groups per integration', ngroup)
     print('time per single integration:', tint)
     print('cadence (integration time plus reset):', cadence)
     print('number of in-occultation integrations:', nint.decompose())
+    print('observing efficiency (%):', (tint/cadence).decompose()*100)
 
 
     miri_imaging_ts_calibration = make_miri_calib_dict(miri_imaging_ts)
@@ -485,16 +510,23 @@ for targ in sample:
     figure['FpFs'] = fig.add_subplot(gs[0,2])
 
 
-    figure['lc'].plot(time/targ['pl_orbper'], signal_ts_scatter*flux/signal, '.', alpha=0.5, label=f'{nobs} observations')
-    figure['lc'].plot(time_binned/targ['pl_orbper'], signal_ts_scatter_binned/signal, 'o', alpha=1, color='darkblue')
-    figure['lc'].plot(time/targ['pl_orbper'], signal_ts*flux/signal, '-', lw=3, label=f'Tdur = {np.round(tdur.to(u.min), 2)}')
+    figure['lc'].plot(time/targ['pl_orbper'], signal_ts_scatter*flux/signal, '.', color='k', alpha=0.5, label=f'Cadence={np.round(cadence, 2)}; ngroups={ngroup}')
+    figure['lc'].plot(time_binned/targ['pl_orbper'], signal_ts_scatter_binned/signal, 'o', color='k', alpha=1)
+    figure['lc'].plot(time/targ['pl_orbper'], signal_ts*flux/signal, '-', lw=3, color='C3', label=f'NO atmo; Tday={np.round(T_rock, 0)}')
 
-    figure['lc'].axvline(0.5, ls=':', color='k', alpha=0.6)
-    figure['lc'].axvline(0.5-tdur.value/targ['pl_orbper']/2, ls='--', color='k', alpha=0.6)
-    figure['lc'].axvline(0.5+tdur.value/targ['pl_orbper']/2, ls='--', color='k', alpha=0.6)
+    # compare to depth of full equilibrium atmosphere
+    planet.map.amp = amp_atmo
+    flux = np.hstack(system.flux(time))
+    figure['lc'].plot(time/targ['pl_orbper'], signal_ts*flux/signal, '--', lw=3, color='C0', alpha=0.8, label=f'YES atmo; Tday={np.round(T_atmo, 0)}')
+
+
+    figure['lc'].axvline(0.5, ls=':', color='k', alpha=0.5)
+    figure['lc'].axvline(0.5-tdur.value/targ['pl_orbper']/2, ls='--', color='k', alpha=0.5)
+    figure['lc'].axvline(0.5+tdur.value/targ['pl_orbper']/2, ls='--', color='k', alpha=0.5)
 
     figure['lc'].legend(loc='upper right')
-    figure['lc'].set_title(targ['pl_name']+f', {nobs} observations', fontsize=16)
+    per = targ['pl_orbper']
+    figure['lc'].set_title(targ['pl_name']+f', Kmag={k_mag}, {nobs} obs, Tdur = {np.round(tdur.to(u.min), 2)}, P={np.round(per, 3)} days', fontsize=16)
 
     figure['lc'].set_xlabel('Phase', fontsize=14)
     figure['lc'].set_ylabel('Normalized Flux', fontsize=14)
@@ -507,12 +539,12 @@ for targ in sample:
 
     yerr = 1/report['scalar']['sn'] / np.sqrt(nint) / np.sqrt(nobs)
 
-    figure['FpFs'].plot(wave_range, Fp_Fs_rock *1e6, lw=3, color='C3')
-    figure['FpFs'].plot(wave_range, Fp_Fs_atmo *1e6, lw=3, color='C0')
-
+    figure['FpFs'].plot(wave_range, Fp_Fs_rock *1e6, lw=3, color='C3', label='NO atmo (bare rock)')
+    figure['FpFs'].plot(wave_range, Fp_Fs_atmo *1e6, lw=3, color='C0', ls='--', label='YES atmo (equilibrium temp)')
 
     figure['FpFs'].errorbar(ref_wave.value, amp_rock *1e6, yerr=yerr.value *1e6, fmt='.', color='k', alpha=0.8)
 
+    figure['FpFs'].legend(loc='lower right')
     figure['FpFs'].set_ylabel('$F_p$/$F_s$ (ppm)', fontsize=14)
     figure['FpFs'].set_xlabel('Wavelength ($\mu$m)', fontsize=14)
     figure['FpFs'].set_title(f'T_day,rock = {np.rint(T_rock)}, {nobs} obs', fontsize=16)
@@ -522,4 +554,8 @@ for targ in sample:
     
     plname = targ['pl_name'].replace(' ','')  # w/o spaces
     plt.savefig(f'../sample/{plname}_{filter}_{subarray}_{nobs}obs.png')
-    plt.show()
+    #plt.show()
+    plt.close()
+
+#for targ in sample: process_target(targ)
+process_target(sample[-2])
