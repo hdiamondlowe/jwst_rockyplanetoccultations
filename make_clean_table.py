@@ -234,5 +234,5 @@ ax.xaxis.set_minor_formatter(StrMethodFormatter('{x:.1f}'))
 
 plt.tight_layout()
 
-plt.savefig('Figure_TerrestrialSample.png', dpi=800)
+plt.savefig('../Figure_TerrestrialSample.png', dpi=800)
 plt.show()

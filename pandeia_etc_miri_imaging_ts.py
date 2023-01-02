@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import astropy.units as u
 from astropy.io import ascii
 from astropy.coordinates import SkyCoord
@@ -315,31 +316,22 @@ def make_star(targ):
 
 # adapted from Mette's code
 def make_planet(plnt, phase=0, t0=0, tidally_locked=True):
-    #m_p     = ((plnt['pl_bmasse']*u.M_earth)/(plnt['st_mass']*u.M_sun)).decompose()
-    #r_p     = ((plnt['pl_rade']*u.R_earth)/(plnt['st_rad']*u.R_sun)).decompose()
-    m_p     = ((plnt['pl_bmasse']*u.M_earth).to(u.M_sun)).value
-    r_p     = ((plnt['pl_rade']*u.R_earth).to(u.R_sun)).value
-    porb    = plnt['pl_orbper']
-    prot    = plnt['pl_orbper']
-    Omega   = 0
-    ecc     = 0
-    w       = 90
-    t0      = t0
-    theta0  = 180
-    inc     = plnt['pl_orbincl']
 
     planet  = st.kepler.Secondary(
         st.Map(ydeg = 5, nw = 1, amp = 5e-3),               
-        m      = m_p,                                
-        r      = r_p,                          
-        porb   = porb,                                                      
-        prot   = prot,                                       
-        Omega  = Omega,                                         
-        ecc    = ecc,                                                         
-        w      = w,                                  
+        m      = plnt['pl_bmasse'],                                
+        r      = plnt['pl_rade'],                          
+        porb   = plnt['pl_orbper'],                                                      
+        prot   = plnt['pl_orbper'],                                       
+        Omega  = 0,                                         
+        ecc    = 0,                                                         
+        w      = 90,                                  
         t0     = t0,                           
-        theta0 = theta0,                           
-        inc    = inc                             
+        theta0 = 180,                           
+        inc    = plnt['pl_orbincl'],
+        length_unit = u.Rearth,
+        mass_unit   = u.Mearth
+
     )
     
     if tidally_locked:
@@ -435,7 +427,6 @@ for targ in sample:
     T_atmo = T_day(targ['st_teff']*u.K, targ['st_rad']*u.R_sun, targ['pl_orbsmax']*u.AU, 0, atmo='equilibrium')
     amp_atmo = flux_amplitude(targ['st_teff']*u.K, T_atmo, ref_wave, targ['st_rad']*u.R_sun, targ['pl_rade']*u.R_earth)
 
-    print(amp_rock, amp_atmo)
     planet = make_planet(targ)
     planet.map.amp = amp_rock
 
@@ -486,43 +477,49 @@ for targ in sample:
     time_bin_width = np.mean(np.diff(time_bin_edges))
     time_binned = time_bin_edges[:-1] + time_bin_width/2
 
-    plt.figure(figsize=(15,4))
-    plt.plot(time, signal_ts_scatter*flux/signal, '.', alpha=0.5, label=f'{nobs} observations')
-    plt.plot(time_binned, signal_ts_scatter_binned/signal, 'o', alpha=1, color='darkblue')
-    plt.plot(time, signal_ts*flux/signal, '-', lw=3)
-    plt.axvline(0.5*targ['pl_orbper'], ls=':', alpha=0.6)
-    plt.axvline(0.5*targ['pl_orbper']-tdur.value/2, ls='--', alpha=0.6)
-    plt.axvline(0.5*targ['pl_orbper']+tdur.value/2, ls='--', alpha=0.6)
+    fig = plt.figure(figsize=(15,6))
+    gs = gridspec.GridSpec(1, 3, left=0.07, right=0.99, bottom=0.1, top=0.93)
 
-    plt.title(targ['pl_name']+f', dayside temp of bare rock = {T_rock}, {nobs} obs', fontsize=16)
+    figure = {}
+    figure['lc'] = fig.add_subplot(gs[0,0:2])
+    figure['FpFs'] = fig.add_subplot(gs[0,2])
 
-    plt.xlabel('Time (days)')
-    plt.ylabel('Normalized Flux')
 
-    plt.grid(alpha=0.4)
-    plt.tight_layout()
-    plt.show()
+    figure['lc'].plot(time/targ['pl_orbper'], signal_ts_scatter*flux/signal, '.', alpha=0.5, label=f'{nobs} observations')
+    figure['lc'].plot(time_binned/targ['pl_orbper'], signal_ts_scatter_binned/signal, 'o', alpha=1, color='darkblue')
+    figure['lc'].plot(time/targ['pl_orbper'], signal_ts*flux/signal, '-', lw=3, label=f'Tdur = {np.round(tdur.to(u.min), 2)}')
 
+    figure['lc'].axvline(0.5, ls=':', color='k', alpha=0.6)
+    figure['lc'].axvline(0.5-tdur.value/targ['pl_orbper']/2, ls='--', color='k', alpha=0.6)
+    figure['lc'].axvline(0.5+tdur.value/targ['pl_orbper']/2, ls='--', color='k', alpha=0.6)
+
+    figure['lc'].legend(loc='upper right')
+    figure['lc'].set_title(targ['pl_name']+f', {nobs} observations', fontsize=16)
+
+    figure['lc'].set_xlabel('Phase', fontsize=14)
+    figure['lc'].set_ylabel('Normalized Flux', fontsize=14)
+
+    figure['lc'].grid(alpha=0.4)
 
     wave_range = np.linspace(0.7, 25, 100) *u.micron
     Fp_Fs_rock = flux_amplitude(targ['st_teff']*u.K, T_rock, wave_range, targ['st_rad']*u.R_sun, targ['pl_rade']*u.R_earth)
     Fp_Fs_atmo = flux_amplitude(targ['st_teff']*u.K, T_atmo, wave_range, targ['st_rad']*u.R_sun, targ['pl_rade']*u.R_earth)
 
     yerr = 1/report['scalar']['sn'] / np.sqrt(nint) / np.sqrt(nobs)
-    ref_wave
+
+    figure['FpFs'].plot(wave_range, Fp_Fs_rock *1e6, lw=3, color='C3')
+    figure['FpFs'].plot(wave_range, Fp_Fs_atmo *1e6, lw=3, color='C0')
 
 
-    plt.figure(figsize=(12, 8))
-    plt.plot(wave_range, Fp_Fs_rock *1e6, lw=3, color='C3')
-    plt.plot(wave_range, Fp_Fs_atmo *1e6, lw=3, color='C0')
+    figure['FpFs'].errorbar(ref_wave.value, amp_rock *1e6, yerr=yerr.value *1e6, fmt='.', color='k', alpha=0.8)
 
+    figure['FpFs'].set_ylabel('$F_p$/$F_s$ (ppm)', fontsize=14)
+    figure['FpFs'].set_xlabel('Wavelength ($\mu$m)', fontsize=14)
+    figure['FpFs'].set_title(f'T_day,rock = {np.rint(T_rock)}, {nobs} obs', fontsize=16)
 
-    plt.errorbar(ref_wave.value, amp_rock *1e6, yerr=yerr.value *1e6, fmt='.', color='k', alpha=0.8)
-
-    plt.ylabel('$F_p$/$F_s$ (ppm)', fontsize=14)
-    plt.xlabel('Wavelength ($\mu$m)', fontsize=14)
-    plt.title(targ['pl_name']+f', dayside temp of bare rock = {T_rock}, {nobs} obs', fontsize=16)
-
-    plt.xlim(0.7, 25)
-    plt.grid(alpha=0.4)
+    figure['FpFs'].set_xlim(0.7, 25)
+    figure['FpFs'].grid(alpha=0.4)
+    
+    plname = targ['pl_name'].replace(' ','')  # w/o spaces
+    plt.savefig(f'../sample/{plname}_{filter}_{subarray}_{nobs}obs.png')
     plt.show()
