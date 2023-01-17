@@ -381,6 +381,7 @@ def process_target(targ):
         nobs = targ['nobs']
 
     except: 
+        print('*** Using dfault filter=f1500w, subarray=sub256, and nobs=4***')
         filter = 'f1500w'
         subarray = 'sub256'
         nobs = 4
