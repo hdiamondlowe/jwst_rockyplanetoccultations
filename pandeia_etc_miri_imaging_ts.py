@@ -301,15 +301,6 @@ def get_timing(miri_dict):
 
 
 
-# ## Provide stellar parameters
-
-# grab a table of transiting terrestrial exoplanets from NASA Exoplante Archive
-try:
-    sample = ascii.read('RockyPlanetSample_final.csv')
-except: 
-    sample = ascii.read('sample_final.csv')
-print("number of planets", len(sample))
-
 # Creating a standard star
 def make_star(targ):
     M_s  = targ['st_mass']
@@ -350,7 +341,7 @@ def make_planet(plnt, phase=0, t0=0, tidally_locked=True):
         
     return planet
 
-def flux_amplitude(T_s, T_p, wavelength, R_s, R_p):
+def calc_FpFs(T_s, T_p, wavelength, R_s, R_p):
     
     ''' This function will take in the Temperature in Kelvin, 
     and the wavelength range that we are looking at,
@@ -363,7 +354,7 @@ def flux_amplitude(T_s, T_p, wavelength, R_s, R_p):
         
     return Flux_ratio.decompose()
 
-def T_day(T_s, R_s, a, albedo, atmo='bare rock'):
+def calc_Tday(T_s, R_s, a, albedo, atmo='bare rock'):
     # can be 'bare rock' or 'equilibrium'
     if   atmo == 'bare rock': f = 2/3
     elif atmo == 'equilibrium': f = 1/4
@@ -372,7 +363,7 @@ def T_day(T_s, R_s, a, albedo, atmo='bare rock'):
     
     return T_day
 
-def process_target(targ):
+def process_target(targ, display_figure=False):
     print(targ)
 
     try:
@@ -447,12 +438,14 @@ def process_target(targ):
     print(report_calibration['warnings'])
 
 
-    T_rock = T_day(targ['st_teff']*u.K, targ['st_rad']*u.R_sun, targ['pl_orbsmax']*u.AU, 0, atmo='bare rock')
-    amp_rock = flux_amplitude(targ['st_teff']*u.K, T_rock, ref_wave, targ['st_rad']*u.R_sun, targ['pl_rade']*u.R_earth)
+    T_rock = calc_Tday(targ['st_teff']*u.K, targ['st_rad']*u.R_sun, targ['pl_orbsmax']*u.AU, 0, atmo='bare rock')
+    amp_rock = calc_FpFs(targ['st_teff']*u.K, T_rock, ref_wave, targ['st_rad']*u.R_sun, targ['pl_rade']*u.R_earth)
 
-    T_atmo = T_day(targ['st_teff']*u.K, targ['st_rad']*u.R_sun, targ['pl_orbsmax']*u.AU, 0, atmo='equilibrium')
-    amp_atmo = flux_amplitude(targ['st_teff']*u.K, T_atmo, ref_wave, targ['st_rad']*u.R_sun, targ['pl_rade']*u.R_earth)
+    T_atmo = calc_Tday(targ['st_teff']*u.K, targ['st_rad']*u.R_sun, targ['pl_orbsmax']*u.AU, 0, atmo='equilibrium')
+    amp_atmo = calc_FpFs(targ['st_teff']*u.K, T_atmo, ref_wave, targ['st_rad']*u.R_sun, targ['pl_rade']*u.R_earth)
 
+    print("f=2/3:", T_rock, ";", "f=1/4", T_atmo)
+    
     planet = make_planet(targ)
     planet.map.amp = amp_rock
 
@@ -469,7 +462,7 @@ def process_target(targ):
     calibration_extracted_flux = report_calibration['scalar']['extracted_flux'] / u.s
     calibration_norm_value = report_calibration['input']['scene'][0]['spectrum']['normalization']['norm_flux']
 
-    extracted_flux, extracted_noise, calibration_extracted_flux * calibration_norm_value
+    #extracted_flux, extracted_noise, calibration_extracted_flux * calibration_norm_value
 
     #signal = extracted_flux * tint
     #noise  = extracted_noise * tint
@@ -535,8 +528,8 @@ def process_target(targ):
     figure['lc'].grid(alpha=0.4)
 
     wave_range = np.linspace(0.7, 25, 100) *u.micron
-    Fp_Fs_rock = flux_amplitude(targ['st_teff']*u.K, T_rock, wave_range, targ['st_rad']*u.R_sun, targ['pl_rade']*u.R_earth)
-    Fp_Fs_atmo = flux_amplitude(targ['st_teff']*u.K, T_atmo, wave_range, targ['st_rad']*u.R_sun, targ['pl_rade']*u.R_earth)
+    Fp_Fs_rock = calc_FpFs(targ['st_teff']*u.K, T_rock, wave_range, targ['st_rad']*u.R_sun, targ['pl_rade']*u.R_earth)
+    Fp_Fs_atmo = calc_FpFs(targ['st_teff']*u.K, T_atmo, wave_range, targ['st_rad']*u.R_sun, targ['pl_rade']*u.R_earth)
 
     yerr = 1/report['scalar']['sn'] / np.sqrt(nint) / np.sqrt(nobs)
 
@@ -545,6 +538,8 @@ def process_target(targ):
 
     figure['FpFs'].errorbar(ref_wave.value, amp_rock *1e6, yerr=yerr.value *1e6, fmt='.', color='k', alpha=0.8)
 
+    print('Data point:', amp_rock*1e6, '+/-', yerr*1e6, 'ppm')
+    
     figure['FpFs'].legend(loc='lower right')
     figure['FpFs'].set_ylabel('$F_p$/$F_s$ (ppm)', fontsize=14)
     figure['FpFs'].set_xlabel('Wavelength ($\mu$m)', fontsize=14)
@@ -555,8 +550,15 @@ def process_target(targ):
     
     plname = targ['pl_name'].replace(' ','')  # w/o spaces
     plt.savefig(f'../sample/{plname}_{filter}_{subarray}_{nobs}obs.png')
-    #plt.show()
+    if display_figure: plt.show()
     plt.close()
 
-#for targ in sample: process_target(targ)
-process_target(sample[-2])
+
+# ## Provide stellar parameters
+
+
+sample = ascii.read('sample_final.csv')
+print("number of planets", len(sample))
+
+for targ in sample: process_target(targ)
+#process_target(sample[-2])
