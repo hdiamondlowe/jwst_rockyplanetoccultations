@@ -22,20 +22,33 @@
     "scene": [
         {
             "shape": {
-                "geometry": "point",
-                "shape_parameters": []
+                "shape_parameters": [],
+                "geometry": "point"
             },
             "position": {
-                "x_offset": 0.0,
                 "orientation": 0.0,
-                "y_offset": 0.0,
                 "position_parameters": [
                     "x_offset",
                     "y_offset",
                     "orientation"
-                ]
+                ],
+                "y_offset": 0.0,
+                "x_offset": 0.0
             },
             "spectrum": {
+                "spectrum_parameters": [
+                    "redshift",
+                    "normalization",
+                    "extinction",
+                    "sed"
+                ],
+                "name": "generic source",
+                "extinction": {
+                    "law": "mw_rv_31",
+                    "bandpass": "j",
+                    "unit": "mag",
+                    "value": 0.0
+                },
                 "normalization": {
                     "type": "at_lambda",
                     "norm_wave": 2.0,
@@ -43,26 +56,13 @@
                     "norm_fluxunit": "mjy",
                     "norm_waveunit": "microns"
                 },
-                "redshift": 0.0,
-                "name": "generic source",
                 "sed": {
                     "sed_type": "flat",
                     "unit": "fnu",
                     "z": 0.0
                 },
                 "lines": [],
-                "spectrum_parameters": [
-                    "redshift",
-                    "normalization",
-                    "extinction",
-                    "sed"
-                ],
-                "extinction": {
-                    "bandpass": "j",
-                    "unit": "mag",
-                    "law": "mw_rv_31",
-                    "value": 0.0
-                }
+                "redshift": 0.0
             }
         }
     ],
