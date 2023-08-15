@@ -22,34 +22,20 @@
     "scene": [
         {
             "shape": {
-                "geometry": "point",
-                "shape_parameters": []
+                "shape_parameters": [],
+                "geometry": "point"
             },
             "position": {
-                "y_offset": 0.0,
                 "x_offset": 0.0,
+                "orientation": 0.0,
+                "y_offset": 0.0,
                 "position_parameters": [
                     "x_offset",
                     "y_offset",
                     "orientation"
-                ],
-                "orientation": 0.0
+                ]
             },
             "spectrum": {
-                "redshift": 0.0,
-                "lines": [],
-                "name": "generic source",
-                "sed": {
-                    "sed_type": "flat",
-                    "unit": "fnu",
-                    "z": 0.0
-                },
-                "spectrum_parameters": [
-                    "redshift",
-                    "normalization",
-                    "extinction",
-                    "sed"
-                ],
                 "normalization": {
                     "type": "at_lambda",
                     "norm_wave": 2.0,
@@ -57,11 +43,25 @@
                     "norm_fluxunit": "mjy",
                     "norm_waveunit": "microns"
                 },
+                "lines": [],
+                "redshift": 0.0,
+                "spectrum_parameters": [
+                    "redshift",
+                    "normalization",
+                    "extinction",
+                    "sed"
+                ],
+                "name": "generic source",
+                "sed": {
+                    "sed_type": "flat",
+                    "unit": "fnu",
+                    "z": 0.0
+                },
                 "extinction": {
-                    "bandpass": "j",
-                    "unit": "mag",
                     "value": 0.0,
-                    "law": "mw_rv_31"
+                    "unit": "mag",
+                    "law": "mw_rv_31",
+                    "bandpass": "j"
                 }
             }
         }
