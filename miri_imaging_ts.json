@@ -22,20 +22,28 @@
     "scene": [
         {
             "shape": {
-                "shape_parameters": [],
-                "geometry": "point"
+                "geometry": "point",
+                "shape_parameters": []
             },
             "position": {
-                "x_offset": 0.0,
-                "orientation": 0.0,
-                "y_offset": 0.0,
                 "position_parameters": [
                     "x_offset",
                     "y_offset",
                     "orientation"
-                ]
+                ],
+                "orientation": 0.0,
+                "x_offset": 0.0,
+                "y_offset": 0.0
             },
             "spectrum": {
+                "redshift": 0.0,
+                "lines": [],
+                "extinction": {
+                    "value": 0.0,
+                    "law": "mw_rv_31",
+                    "bandpass": "j",
+                    "unit": "mag"
+                },
                 "normalization": {
                     "type": "at_lambda",
                     "norm_wave": 2.0,
@@ -43,8 +51,6 @@
                     "norm_fluxunit": "mjy",
                     "norm_waveunit": "microns"
                 },
-                "lines": [],
-                "redshift": 0.0,
                 "spectrum_parameters": [
                     "redshift",
                     "normalization",
@@ -56,12 +62,6 @@
                     "sed_type": "flat",
                     "unit": "fnu",
                     "z": 0.0
-                },
-                "extinction": {
-                    "value": 0.0,
-                    "unit": "mag",
-                    "law": "mw_rv_31",
-                    "bandpass": "j"
                 }
             }
         }
