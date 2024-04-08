@@ -21,11 +21,18 @@
                 "geometry": "point"
             },
             "position": {
-                "orientation": 0.0,
                 "x_offset": 0.0,
+                "orientation": 0.0,
                 "y_offset": 0.0
             },
             "spectrum": {
+                "sed": {
+                    "sed_type": "flat",
+                    "unit": "fnu",
+                    "z": 0.0
+                },
+                "redshift": 0.0,
+                "lines": [],
                 "normalization": {
                     "type": "at_lambda",
                     "norm_wave": 2.0,
@@ -33,20 +40,13 @@
                     "norm_fluxunit": "mjy",
                     "norm_waveunit": "microns"
                 },
-                "redshift": 0.0,
-                "sed": {
-                    "sed_type": "flat",
-                    "unit": "fnu",
-                    "z": 0.0
-                },
-                "lines": [],
+                "name": "generic source",
                 "extinction": {
-                    "value": 0.0,
-                    "law": "mw_rv_31",
                     "bandpass": "j",
-                    "unit": "mag"
-                },
-                "name": "generic source"
+                    "value": 0.0,
+                    "unit": "mag",
+                    "law": "mw_rv_31"
+                }
             }
         }
     ],
