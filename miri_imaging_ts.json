@@ -21,9 +21,9 @@
                 "geometry": "point"
             },
             "position": {
+                "y_offset": 0.0,
                 "x_offset": 0.0,
-                "orientation": 0.0,
-                "y_offset": 0.0
+                "orientation": 0.0
             },
             "spectrum": {
                 "sed": {
@@ -31,8 +31,8 @@
                     "unit": "fnu",
                     "z": 0.0
                 },
+                "name": "generic source",
                 "redshift": 0.0,
-                "lines": [],
                 "normalization": {
                     "type": "at_lambda",
                     "norm_wave": 2.0,
@@ -40,13 +40,13 @@
                     "norm_fluxunit": "mjy",
                     "norm_waveunit": "microns"
                 },
-                "name": "generic source",
                 "extinction": {
+                    "unit": "mag",
                     "bandpass": "j",
                     "value": 0.0,
-                    "unit": "mag",
                     "law": "mw_rv_31"
-                }
+                },
+                "lines": []
             }
         }
     ],
